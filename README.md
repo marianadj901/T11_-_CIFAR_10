@@ -1,4 +1,4 @@
-# Trabalho 1 - Redes Neurais (NES)
+# Trabalho 1: Avaliação 1 - Redes Neurais (NES) UFAL - Módulo 4
 
 Autor: Mariana Lins dos Santos
 Professor: Eduardo Adame
