@@ -1,8 +1,9 @@
-tensorflow
-tensorflow-datasets
-numpy
-matplotlib
-scikit-learn
-streamlit
-pandas
-opencv-python
+tensorflow==2.15.0
+tensorflow-datasets==4.9.4
+numpy==1.26.4
+matplotlib==3.9.2
+scikit-learn==1.5.2
+streamlit==1.38.0
+pandas==2.2.2
+opencv-python==4.10.0.84
+seaborn==0.13.2
