@@ -86,3 +86,9 @@ Funcionalidades:
 * Matriz de confusão evidencia confusões entre classes semelhantes
 
 ---
+
+### 📊 Visualizações
+Funções de visualização estão em `src/viz.py`. Exemplos:
+
+```python
+from src.viz import plot_curves, plot_confusion_matrix, plot_gradcam
