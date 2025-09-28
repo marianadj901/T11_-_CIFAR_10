@@ -1,78 +1,74 @@
 import streamlit as st
-import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
+import tensorflow as tf
 from tensorflow import keras
-from PIL import Image
+from tensorflow.keras.preprocessing import image
+import matplotlib.pyplot as plt
+import cv2
 
-# ------------------------------
-# Configuração
-# ------------------------------
-st.set_page_config(page_title="CIFAR-10 Classificação", layout="centered")
-st.title("🔍 Classificação CIFAR-10 (1 canal) com Grad-CAM")
-
-# Carregar modelo salvo (ajuste o nome do arquivo se necessário)
+# Caminho do modelo treinado (ajuste se necessário)
 MODEL_PATH = "cnn_best.h5"
+
+# Carregar modelo
 model = keras.models.load_model(MODEL_PATH)
 
-classes = ["avião","automóvel","pássaro","gato","cervo",
-           "cachorro","sapo","cavalo","navio","caminhão"]
+# Classes do CIFAR-10
+class_names = [
+    "airplane", "automobile", "bird", "cat", "deer",
+    "dog", "frog", "horse", "ship", "truck"
+]
 
-# ------------------------------
-# Função Grad-CAM
-# ------------------------------
-def make_gradcam_heatmap(img_array, model, last_conv_layer_name="conv2d"):
-    grad_model = tf.keras.models.Model(
-        [model.inputs], [model.get_layer(last_conv_layer_name).output, model.output]
-    )
+st.title("🔎 Classificação de Imagens - CIFAR-10")
+st.write("Faça upload de uma imagem e veja a predição do modelo treinado.")
+
+# Upload de imagem
+uploaded_file = st.file_uploader("Escolha uma imagem...", type=["jpg", "jpeg", "png"])
+
+if uploaded_file is not None:
+    # Ler imagem
+    img = image.load_img(uploaded_file, target_size=(32, 32))
+    img_array = image.img_to_array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
+
+    # Mostrar imagem
+    st.image(uploaded_file, caption="Imagem carregada", use_column_width=True)
+
+    # Fazer previsão
+    predictions = model.predict(img_array)
+    pred_class = np.argmax(predictions[0])
+    confidence = np.max(predictions[0]) * 100
+
+    st.subheader("Resultado da previsão")
+    st.write(f"**Classe prevista:** {class_names[pred_class]} ({confidence:.2f}%)")
+
+    # Mostrar gráfico de probabilidades
+    fig, ax = plt.subplots()
+    ax.bar(class_names, predictions[0])
+    ax.set_xticklabels(class_names, rotation=45)
+    st.pyplot(fig)
+
+    # Grad-CAM para visualização
+    last_conv_layer = model.get_layer(index=-4)
+    grad_model = keras.models.Model([model.inputs], [last_conv_layer.output, model.output])
+
     with tf.GradientTape() as tape:
         conv_outputs, predictions = grad_model(img_array)
-        class_idx = tf.argmax(predictions[0])
-        loss = predictions[:, class_idx]
+        loss = predictions[:, pred_class]
 
     grads = tape.gradient(loss, conv_outputs)
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
     conv_outputs = conv_outputs[0]
 
-    heatmap = tf.reduce_sum(tf.multiply(pooled_grads, conv_outputs), axis=-1)
-    heatmap = np.maximum(heatmap, 0) / (np.max(heatmap) + 1e-10)
-    return heatmap.numpy()
+    heatmap = tf.reduce_mean(tf.multiply(pooled_grads, conv_outputs), axis=-1)
+    heatmap = np.maximum(heatmap, 0) / np.max(heatmap)
 
-def overlay_heatmap(heatmap, img, alpha=0.4, cmap="jet"):
+    # Redimensionar para o tamanho original da imagem
+    heatmap = cv2.resize(heatmap.numpy(), (32, 32))
     heatmap = np.uint8(255 * heatmap)
-    cmap = plt.get_cmap(cmap)
-    cmap_colors = cmap(np.arange(256))[:, :3]
-    heatmap_color = cmap_colors[heatmap]
-    heatmap_color = keras.preprocessing.image.array_to_img(heatmap_color)
-    heatmap_color = heatmap_color.resize((img.size[0], img.size[1]))
-    superimposed_img = Image.blend(img.convert("RGB"), heatmap_color, alpha)
-    return superimposed_img
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 
-# ------------------------------
-# Upload da imagem
-# ------------------------------
-file = st.file_uploader("📂 Envie uma imagem (.jpg ou .png)", type=["jpg", "png"])
+    img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+    superimposed_img = cv2.addWeighted(img_cv, 0.6, heatmap, 0.4, 0)
 
-if file:
-    # Pré-processamento
-    img = Image.open(file).resize((32, 32)).convert("L")
-    x = np.array(img) / 255.0
-    x = x.reshape(1, 32, 32, 1)
-
-    # Predição
-    pred = model.predict(x)[0]
-    pred_class = np.argmax(pred)
-
-    # Mostrar imagem original
-    st.image(img, caption="Imagem enviada", width=150)
-
-    # Mostrar predições
-    st.bar_chart(pred)
-    st.write(f"🔮 Classe prevista: **{classes[pred_class]}**")
-
-    # Grad-CAM
-    st.subheader("🌡️ Grad-CAM (ativação visual)")
-    heatmap = make_gradcam_heatmap(x, model, last_conv_layer_name="conv2d")
-    gradcam_img = overlay_heatmap(heatmap, img)
-
-    st.image(gradcam_img, caption="Grad-CAM", use_column_width=True)
+    st.subheader("Grad-CAM (regiões mais importantes)")
+    st.image(superimposed_img, channels="BGR", use_column_width=True)
