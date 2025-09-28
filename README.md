@@ -21,6 +21,11 @@ Inclui análise de overfitting, regularização (Dropout/L2), Grad-CAM, matriz d
 
 ---
 
+## Detalhes de Treino
+- Épocas: 30 (default, EarlyStopping com paciência 5)
+- Sementes: fixadas (padrão 42)
+- Parâmetros: CNN ≈ X mil, MLP ≈ Y mil (obtido via `model.summary()`)
+
 ## 🚀 Instalação
 ```bash
 pip install -r requirements.txt
